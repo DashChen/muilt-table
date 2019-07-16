@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.min.css" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+  <style>
+    [v-cloak] {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+<div id="app" v-cloak>
+  <v-app>
+    <v-window v-model="step">
+      <v-window-item :value="1">
+        <v-toolbar flat color="white">
+          <v-toolbar-title><span class="display-2">{{ title }}</span></v-toolbar-title>
+          <v-divider
+                  class="mx-2"
+                  inset
+                  vertical
+          ></v-divider>
+          <v-spacer></v-spacer>
+          <v-text-field
+                  v-model="search"
+                  append-icon="search"
+                  label="Search"
+                  single-line
+                  hide-details
+          ></v-text-field>
+          <v-dialog v-model="dialog" max-width="500px" v-if="inSame">
+            <template v-slot:activator="{ on }">
+              <v-btn color="primary" dark class="mb-2" v-on="on">{{ '新增' + title }}</v-btn>
+            </template>
+            <v-card>
+              <v-card-title>
+                <span class="headline">{{ formTitle }}</span>
+              </v-card-title>
+
+              <v-card-text>
+                <v-container grid-list-md>
+                  <v-layout wrap>
+                    <v-flex xs12 sm6 v-for="(value, key, index) in editedItem" :key="key">
+                      <v-text-field v-model="editedItem[key]" :label="headers[index].text"></v-text-field>
+                    </v-flex>
+                  </v-layout>
+                </v-container>
+              </v-card-text>
+
+              <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn color="blue darken-1" flat @click="close">取消</v-btn>
+                <v-btn color="blue darken-1" flat @click="save(false)">保存</v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-dialog>
+          <v-btn color="primary" dark class="mb-2" v-if="!inSame" @click="changeWindow(2)">{{ '新增' + title }}</v-btn>
+        </v-toolbar>
+        <v-data-table
+                :headers="headers"
+                :items="items"
+                :search="search"
+                class="elevation-1"
+                hide-actions
+                :pagination.sync="pagination"
+                :item-key="keyword"
+        >
+          <template v-slot:no-data>
+            <v-alert :value="true" color="error" icon="warning">
+              抱歉，列表中沒有任何資訊
+            </v-alert>
+          </template>
+          <template v-slot:items="props">
+            <tr @click="expand(props)">
+              <td
+                      v-for="(value, key) in props.item"
+              >
+                <div v-if="props.item.key != 'actions'">{{ value }}</div>
+              </td>
+              <td>
+                <div class="justify-center layout px-0">
+                  <v-icon
+                          small
+                          class="mr-2"
+                          @click="editItem(props.item, false)"
+                  >
+                    edit
+                  </v-icon>
+                  <v-icon
+                          small
+                          @click="deleteItem(props.item, false)"
+                  >
+                    delete
+                  </v-icon>
+                </div>
+              </td>
+            </tr>
+          </template>
+          <template v-slot:expand="props">
+            <v-card flat class="px-2 yellow lighten-5">
+              <v-card-title class="py-1">
+                <v-dialog v-model="subDialog" max-width="500px" v-if="inSame">
+                  <template v-slot:activator="{ on }">
+                    <v-btn color="primary" dark class="mb-2 ml-auto" v-on="on">{{ '新增' + subTitle }}</v-btn>
+                  </template>
+                  <v-card>
+                    <v-card-title>
+                      <span class="headline">{{ formSubTitle }}</span>
+                    </v-card-title>
+
+                    <v-card-text>
+                      <v-container grid-list-md>
+                        <v-layout wrap>
+                          <v-flex xs12 sm6 v-for="(value, key, index) in editedSubItem" :key="key">
+                            <v-text-field v-model="editedSubItem[key]" :label="subHeaders[index].text"></v-text-field>
+                          </v-flex>
+                        </v-layout>
+                      </v-container>
+                    </v-card-text>
+
+                    <v-card-actions>
+                      <v-spacer></v-spacer>
+                      <v-btn color="blue darken-1" flat @click="close">取消</v-btn>
+                      <v-btn color="blue darken-1" flat @click="save(true)">保存</v-btn>
+                    </v-card-actions>
+                  </v-card>
+                </v-dialog>
+              </v-card-title>
+              <v-data-table
+                      :headers="subHeaders"
+                      :items="subTableItems"
+                      class="elevation-0"
+                      hide-actions
+              >
+                <template v-slot:no-data>
+                  <v-alert :value="true" color="error" icon="warning">
+                    抱歉，列表中沒有任何資訊
+                  </v-alert>
+                </template>
+                <template v-slot:items="props">
+                  <td
+                          v-for="(value, key) in props.item"
+                  >
+                    <div v-if="props.item.key != 'actions'">{{ value }}</div>
+                  </td>
+                  <td v-if="inSame">
+                    <div class="justify-center layout px-0">
+                      <v-icon
+                              small
+                              class="mr-2"
+                              @click="editItem(props.item, true)"
+                      >
+                        edit
+                      </v-icon>
+                      <v-icon
+                              small
+                              @click="deleteItem(props.item, true)"
+                      >
+                        delete
+                      </v-icon>
+                    </div>
+                  </td>
+                </template>
+              </v-data-table>
+            </v-card>
+          </template>
+        </v-data-table>
+        <div class="text-xs-center pt-2">
+          <v-pagination v-model="pagination.page" :length="pages"></v-pagination>
+        </div>
+      </v-window-item>
+      <v-window-item :value="2">
+        <v-card>
+          <v-card-title>
+            <span class="headline">{{ formTitle }}</span>
+          </v-card-title>
+
+          <v-card-text>
+            <v-layout wrap>
+              <v-flex xs12 sm6 class="px-2" v-for="(value, key, index) in editedItem" :key="key">
+                <v-text-field v-model="editedItem[key]" :label="headers[index].text"></v-text-field>
+              </v-flex>
+            </v-layout>
+            <v-card flat class="px-2 yellow lighten-5">
+              <v-card-title class="py-1">
+                <v-dialog v-model="subDialog" max-width="500px" v-if="!inSame">
+                  <template v-slot:activator="{ on }">
+                    <v-btn color="primary" dark class="mb-2 ml-auto" v-on="on">{{ '新增' + subTitle }}</v-btn>
+                  </template>
+                  <v-card>
+                    <v-card-title>
+                      <span class="headline">{{ formSubTitle }}</span>
+                    </v-card-title>
+
+                    <v-card-text>
+                      <v-container grid-list-md>
+                        <v-layout wrap>
+                          <v-flex xs12 sm6 v-for="(value, key, index) in editedSubItem" :key="key">
+                            <v-text-field v-model="editedSubItem[key]" :label="subHeaders[index].text"></v-text-field>
+                          </v-flex>
+                        </v-layout>
+                      </v-container>
+                    </v-card-text>
+
+                    <v-card-actions>
+                      <v-spacer></v-spacer>
+                      <v-btn color="blue darken-1" flat @click="close">取消</v-btn>
+                      <v-btn color="blue darken-1" flat @click="save(true)">保存</v-btn>
+                    </v-card-actions>
+                  </v-card>
+                </v-dialog>
+              </v-card-title>
+              <v-data-table
+                      :headers="subHeaders"
+                      :items="subTableItems"
+                      class="elevation-0"
+                      hide-actions
+              >
+                <template v-slot:no-data>
+                  <v-alert :value="true" color="error" icon="warning">
+                    抱歉，列表中沒有任何資訊
+                  </v-alert>
+                </template>
+                <template v-slot:items="props">
+                  <td
+                          v-for="(value, key) in props.item"
+                  >
+                    <div v-if="props.item.key != 'actions'">{{ value }}</div>
+                  </td>
+                  <td>
+                    <div class="justify-center layout px-0">
+                      <v-icon
+                              small
+                              class="mr-2"
+                              @click="editItem(props.item, true)"
+                      >
+                        edit
+                      </v-icon>
+                      <v-icon
+                              small
+                              @click="deleteItem(props.item, true)"
+                      >
+                        delete
+                      </v-icon>
+                    </div>
+                  </td>
+                </template>
+              </v-data-table>
+            </v-card>
+          </v-card-text>
+
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn color="blue darken-1" flat @click="changeWindow(1)">返回</v-btn>
+            <v-btn color="blue darken-1" flat @click="save(false)">保存</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-window-item>
+    </v-window>
+  </v-app>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify/dist/vuetify.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.14/lodash.min.js"></script>
+<script>
+  var table = new Vue({
+    el: '#app',
+    data: {
+      inSame: true,
+      step: 1,
+      pagination: {},
+      search: '',
+      selected: [],
+      actions: {
+        text: '編/刪', value: 'actions', sortable: false
+      },
+      mainUrl: {
+        url: '',
+        params: {}
+      },
+      title: '客戶',
+      dialog: false,
+      keyword: 'customer_id',
+      headers: [
+        {text: '客戶編號', value: 'customer_id', sortable: true, align: 'left'},
+        {text: '戶主姓名', value: 'name', sortable: false, align: 'left'},
+        {text: '電話', value: 'telephone', sortable: false, align: 'left'},
+        {text: '手機', value: 'cellphone', sortable: false, align: 'left'},
+        {text: '地址1', value: 'address1', sortable: false, align: 'left'},
+        {text: '備註', value: 'remark', sortable: false, align: 'left'},
+      ],
+      items: [],
+      editedIndex: -1,
+      editedItem: {
+        customer_id: '',
+        name: '',
+        telephone: '',
+        cellphone: '',
+        address1: '',
+        remark: '',
+      },
+      defaultItem: {
+        customer_id: '',
+        name: '',
+        telephone: '',
+        cellphone: '',
+        address1: '',
+        remark: '',
+      },
+      subDialog: false,
+      subTitle: '家庭成員',
+      subKeyword: 'member_id',
+      subHeaders: [
+        {text: '序號', value: 'member_id', sortable: true, align: 'left'},
+        {text: '家庭成員', value: 'member', sortable: false, align: 'left'},
+        {text: '性別', value: 'gender', sortable: false, align: 'left'},
+        {text: '農曆出生年月日', value: 'lunar_birthday', sortable: false, align: 'left'},
+        {text: '時辰', value: 'time', sortable: false, align: 'left'},
+        {text: '生肖', value: 'zodiac', sortable: false, align: 'left'},
+        {text: '國曆出生年月日', value: 'birthday', sortable: false, align: 'left'},
+        {text: '備註', value: 'remark', sortable: false, align: 'left'},
+        {text: '備註1', value: 'remark1', sortable: false, align: 'left'},
+        {text: '歿', value: 'dead', sortable: false, align: 'center'},
+      ],
+      subItems: {},
+      subTableItems: [],
+      parentIndex: -1,
+      editedSubIndex: -1,
+      editedSubItem: {
+        member_id: '',
+        member: '',
+        gender: '',
+        lunar_birthday: '',
+        time: '',
+        zodiac: '',
+        birthday: '',
+        remark: '',
+        remark1: '',
+        dead: '',
+      },
+      defaultSubItem: {
+        member_id: '',
+        member: '',
+        gender: '',
+        lunar_birthday: '',
+        time: '',
+        zodiac: '',
+        birthday: '',
+        remark: '',
+        remark1: '',
+        dead: '',
+      },
+    },
+    computed: {
+      formTitle() {
+        return (this.editedIndex === -1 ? '新增' : '編輯') + this.title;
+      },
+      formSubTitle() {
+        return (this.editedSubIndex === -1 ? '新增' : '編輯') + this.subTitle;
+      },
+      pages() {
+        if (this.pagination.rowsPerPage == null ||
+          this.pagination.totalItems == null
+        ) return 0
+
+        return Math.ceil(this.pagination.totalItems / this.pagination.rowsPerPage)
+      },
+    },
+
+    watch: {
+      dialog(val) {
+        val || this.close()
+      },
+      step(val) {
+        const index = this.subHeaders.indexOf(this.actions);
+        if (val == 2) {
+          if (index < 0) {
+            this.subHeaders.push(this.actions);
+          }
+          if(this.editedIndex < 0){
+            this.subTableItems = [];
+          }
+        }else if(val == 1 && !this.inSame){
+          if (index > -1) {
+            this.subHeaders.splice(index, 1);
+          }
+          this.getSubItems();
+        }
+      }
+    },
+
+    created() {
+      let self = this;
+      axios.get(this.mainUrl.url, this.mainUrl.params)
+        .then(function (response) {
+          console.log(response);
+          const keys = [
+            'headers', 'items', 'editedItem', 'defaultItem', 'keyword',
+            'subHeaders', 'subItems', 'editedSubItem', 'defaultSubItem', 'subKeyword'
+          ];
+          _.forEach(keys, function (key) {
+            if (response.data[key]) {
+              self.$data[key] = response.data[key];
+            }
+          })
+        })
+        .catch(function (error) {
+          console.log(error)
+        })
+    },
+    mounted() {
+      if (this.inSame) {
+        this.subHeaders.push(this.actions);
+      }
+      this.headers.push(this.actions);
+    },
+
+    methods: {
+      initialize() {
+
+      },
+
+      changeWindow(index) {
+        if(index == 2){
+          this.editedItem = Object.assign({}, this.defaultItem);
+          this.editedIndex = -1;
+        }
+        this.step = index;
+      },
+
+      expand(props) {
+        props.expanded = !props.expanded;
+        const index = this.items.indexOf(props.item);
+        this.parentIndex = index;
+        this.getSubItems();
+      },
+
+      editItem(item, isSub) {
+        if (isSub) {
+          if(this.inSame){
+            this.editedSubIndex = this.subItems[this.items[this.parentIndex][this.keyword]].indexOf(item)
+          }else{
+            this.editedSubIndex = this.subTableItems.indexOf(item);
+          }
+          this.editedSubItem = Object.assign({}, item)
+          this.subDialog = true
+        } else {
+          this.editedIndex = this.items.indexOf(item)
+          this.editedItem = Object.assign({}, item)
+          if (this.inSame) {
+            this.dialog = true
+          } else {
+            this.parentIndex = this.items.indexOf(item);
+            this.step = 2;
+            this.getSubItems();
+          }
+        }
+      },
+
+      deleteItem(item, isSub) {
+        if (confirm('Are you sure you want to delete this item?')) {
+          let index = -1;
+          if(isSub){
+            if(this.inSame){
+              index = this.subItems[this.items[this.parentIndex][this.keyword]].indexOf(item);
+            }else{
+              index = this.subTableItems.indexOf(item);
+            }
+          }else{
+            index = this.items.indexOf(item);
+          }
+          let data = {
+            del: true,
+          };
+          let key;
+          if(this.step == 1){
+            key = this.items[index][this.keyword];
+            console.log(key)
+          }
+          if (isSub) {
+            if(this.inSame){
+              data['parentId'] = key;
+              data['id'] = this.subItems[key][index][this.subKeyword];
+              this.$delete(this.subItems[key], index);
+              this.getSubItems();
+            }else{
+              this.$delete(this.subTableItems, index);
+            }
+          } else {
+            if (this.subItems.hasOwnProperty(key)) {
+              this.$delete(this.subItems, key);
+              this.subTableItems = [];
+            }
+            console.log(key)
+            this.items.splice(index, 1)
+
+            data['id'] = key;
+          }
+          if(this.step == 1){
+            this.post(data);
+          }
+        }
+      },
+
+      getSubItems() {
+        let data = [];
+        if(this.parentIndex > -1){
+          _.forEach(this.subItems[this.items[this.parentIndex][this.keyword]], function (val) {
+            data.push(val);
+          })
+        }
+        this.subTableItems = data;
+      },
+
+      close() {
+        if (!this.inSame && this.step == 2 && !this.subDialog) {
+          this.step = 1;
+        }
+        this.dialog = false
+        this.subDialog = false
+        setTimeout(() => {
+          if (this.step != 2) {
+            this.editedItem = Object.assign({}, this.defaultItem)
+            this.editedIndex = -1
+          }
+          this.editedSubItem = Object.assign({}, this.defaultSubItem)
+          this.editedSubIndex = -1
+        }, 300)
+      },
+
+      save(isSub) {
+        let data = {};
+        if (isSub) {
+          if (this.inSame) {
+            const key = this.items[this.parentIndex][this.keyword];
+            if (this.editedSubIndex > -1) {
+              const value = Object.assign(this.subItems[key][this.editedSubIndex], this.editedSubItem);
+              this.$set(this.subItems[key], this.editedSubIndex, value);
+            } else {
+              if (this.subItems.hasOwnProperty(key)) {
+                let arr = this.subItems[key];
+                arr.push(this.editedSubItem);
+                this.$set(this.subItems, key, arr);
+              } else {
+                this.subItems[key] = [this.editedSubItem];
+              }
+            }
+            this.getSubItems();
+            data = _.cloneDeep(this.editedSubItem);
+            data['parentId'] = key;
+          } else {
+            if (this.editedSubIndex > -1) {
+              this.$set(this.subTableItems, this.editedSubIndex, this.editedSubItem);
+            } else {
+              this.subTableItems.push(this.editedSubItem);
+            }
+          }
+        } else {
+          if (this.editedIndex > -1) {
+            Object.assign(this.items[this.editedIndex], this.editedItem)
+          } else {
+            this.items.push(this.editedItem)
+          }
+          data = _.cloneDeep(this.editedItem);
+          if (!this.inSame) {
+            this.subItems[this.editedItem[this.keyword]] = this.subTableItems;
+            data['sub'] = this.subTableItems;
+          }
+        }
+        if (this.step != 2 && !isSub) {
+          this.post(data);
+        }
+        this.close()
+      },
+      post(data) {
+        console.log(data)
+        axios.post(this.mainUrl.url, data)
+          .then(function (response) {
+            console.log(response);
+          })
+          .catch(function (error) {
+            console.log(error);
+          });
+      }
+    }
+  })
+</script>
+</body>
+</html>
